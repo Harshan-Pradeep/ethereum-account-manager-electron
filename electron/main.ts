@@ -1,5 +1,12 @@
 import { app, BrowserWindow } from 'electron'
+
 import path from 'node:path'
+const { ipcMain } = require('electron');
+const { ethers } = require('ethers');
+
+
+
+
 
 // The built directory structure
 //
@@ -56,5 +63,55 @@ app.on('activate', () => {
     createWindow()
   }
 })
+
+  ipcMain.on('create-accounts', (event, numberOfAccounts) => {
+    console.log(numberOfAccounts)
+    //const accounts = ethereumService.createAccounts(numberOfAccounts);
+    //event.reply('accounts-created', accounts);
+
+    //const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/45428ab040a246b28ba479c3bf6f780d');
+    
+      let accounts = [];
+      for (let i = 0; i < numberOfAccounts; i++) {
+        const wallet = ethers.Wallet.createRandom();
+        accounts.push({
+          address: wallet.address,
+          privateKey: wallet.privateKey
+        });
+      }
+      console.log("accounts:", accounts)
+      event.reply('accounts-created', accounts);
+
+    
+  });
+  ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses, amount) => {
+    try {
+      const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/45428ab040a246b28ba479c3bf6f780d');
+      const sourceWallet = new ethers.Wallet(sourcePrivateKey, provider);
+      const totalAmount = ethers.utils.parseEther(amount.toString());
+      const amountPerAccount = totalAmount.div(ethers.BigNumber.from(destinationAddresses.length));
+  
+      for (let address of destinationAddresses) {
+        const transaction = {
+          to: address,
+          value: amountPerAccount.toString()
+        };
+        await sourceWallet.sendTransaction(transaction);
+      }
+  
+      event.reply('funds-transferred', 'Success');
+    } catch (error) {
+      if (error instanceof Error) {
+        event.reply('funds-transfer-error', error.message);
+      } else {
+        // Handle the case where the error is not an instance of Error
+        event.reply('funds-transfer-error', 'An unknown error occurred');
+      }
+    }
+  });
+  
+  
+  
+
 
 app.whenReady().then(createWindow)
