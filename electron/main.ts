@@ -67,6 +67,8 @@ app.on('activate', () => {
   }
 })
 
+
+//Requirement 1
 ipcMain.on('create-accounts', (event, numberOfAccounts) => {
   createdAccounts = []; // Reset the accounts array
   const virtualBalance = 5; // Virtual balance in Ether
@@ -87,7 +89,7 @@ ipcMain.on('create-accounts', (event, numberOfAccounts) => {
 
   
   
-
+//Requirement 2
 ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
   console.log("sourcePrivateKey", sourcePrivateKey);
   console.log("destinationAddresses", destinationAddresses);
@@ -149,6 +151,41 @@ ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresse
       event.reply('funds-transfer-error', error.message);
     } else {
       event.reply('funds-transfer-error', 'An unknown error occurred');
+    }
+  }
+});
+
+
+//Requirement 4
+
+// Requirement 3
+ipcMain.on('transfer-remaining-funds', async (event) => {
+  try {
+    // Randomly select one account as the recipient
+    const recipientIndex = Math.floor(Math.random() * createdAccounts.length);
+    const recipientWallet = createdAccounts[recipientIndex];
+
+    console.log(`Selected recipient: ${recipientWallet.address}`);
+
+    // Transfer the remaining balance of other accounts to the selected account
+    createdAccounts.forEach((account, index) => {
+      if (index !== recipientIndex && account.balance > 0) {
+        console.log(`Transferring ${account.balance} ETH from ${account.address} to ${recipientWallet.address}`);
+        recipientWallet.balance += account.balance; // Add to recipient
+        account.balance = 0; // Deduct from sender
+      }
+    });
+
+    console.log('Remaining funds transferred successfully!');
+    console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
+    console.log("Updated accounts balance:", createdAccounts);
+    event.reply('remaining-funds-transferred', 'Success');
+  } catch (error) {
+    console.error('Error occurred:', error);
+    if (error instanceof Error) {
+      event.reply('remaining-funds-transfer-error', error.message);
+    } else {
+      event.reply('remaining-funds-transfer-error', 'An unknown error occurred');
     }
   }
 });

@@ -8,25 +8,32 @@ const HomePage = () => {
   const [numberOfAccounts, setNumberOfAccounts] = useState(0);
   const [sourcePrivateKey, setSourcePrivateKey] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
-  const [transferMessage, setTransferMessage] = useState(''); // New state variable for the transfer message
+  const [transferMessage, setTransferMessage] = useState('');
+  const [remainingFundsMessage, setRemainingFundsMessage] = useState('');
   const dispatch = useDispatch();
   const accounts = useSelector((state: any) => state.accounts.accounts);
-console.log("accounts",accounts)
+
   useEffect(() => {
     const handleAccountsCreated = (event: any, createdAccounts: any) => {
       dispatch(setAccounts(createdAccounts));
     };
 
     const handleFundsTransferred = (event: any, message: string) => {
-      setTransferMessage(message); // Update the transfer message state
+      setTransferMessage(message);
+    };
+
+    const handleRemainingFundsTransferred = (event: any, message: string) => {
+      setRemainingFundsMessage(message);
     };
 
     ipcRenderer.on('accounts-created', handleAccountsCreated);
     ipcRenderer.on('funds-transferred', handleFundsTransferred);
+    ipcRenderer.on('remaining-funds-transferred', handleRemainingFundsTransferred);
 
     return () => {
       ipcRenderer.removeListener('accounts-created', handleAccountsCreated);
       ipcRenderer.removeListener('funds-transferred', handleFundsTransferred);
+      ipcRenderer.removeListener('remaining-funds-transferred', handleRemainingFundsTransferred);
     };
   }, [dispatch]);
 
@@ -36,16 +43,18 @@ console.log("accounts",accounts)
 
   const handleTransferFunds = () => {
     const sourceWallet = new ethers.Wallet(sourcePrivateKey);
-  const sourceAddress = sourceWallet.address;
+    const sourceAddress = sourceWallet.address;
 
-  const destinationAddresses = accounts
-    .map((acc:any) => acc.address)
-    .filter((address:any) => address !== sourceAddress);
+    const destinationAddresses = accounts
+      .map((acc: any) => acc.address)
+      .filter((address: any) => address !== sourceAddress);
 
-  ipcRenderer.send('transfer-funds', sourcePrivateKey, destinationAddresses, transferAmount);
+    ipcRenderer.send('transfer-funds', sourcePrivateKey, destinationAddresses, transferAmount);
   };
 
-  console.log(transferMessage)
+  const handleTransferRemainingFunds = () => {
+    ipcRenderer.send('transfer-remaining-funds');
+  };
 
   return (
     <div>
@@ -76,9 +85,11 @@ console.log("accounts",accounts)
         onChange={(e) => setTransferAmount(e.target.value)}
       />
       <button onClick={handleTransferFunds}>Transfer Funds</button>
-
-      {/* Display the transfer message */}
       {transferMessage && <p>{transferMessage}</p>}
+
+      <h2>Transfer Remaining Funds</h2>
+      <button onClick={handleTransferRemainingFunds}>Transfer Remaining Funds</button>
+      {remainingFundsMessage && <p>{remainingFundsMessage}</p>}
     </div>
   );
 };

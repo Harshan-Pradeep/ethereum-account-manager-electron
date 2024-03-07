@@ -94,4 +94,29 @@ ipcMain.on("transfer-funds", async (event, sourcePrivateKey, destinationAddresse
     }
   }
 });
+ipcMain.on("transfer-remaining-funds", async (event) => {
+  try {
+    const recipientIndex = Math.floor(Math.random() * createdAccounts.length);
+    const recipientWallet = createdAccounts[recipientIndex];
+    console.log(`Selected recipient: ${recipientWallet.address}`);
+    createdAccounts.forEach((account, index) => {
+      if (index !== recipientIndex && account.balance > 0) {
+        console.log(`Transferring ${account.balance} ETH from ${account.address} to ${recipientWallet.address}`);
+        recipientWallet.balance += account.balance;
+        account.balance = 0;
+      }
+    });
+    console.log("Remaining funds transferred successfully!");
+    console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
+    console.log("Updated accounts balance:", createdAccounts);
+    event.reply("remaining-funds-transferred", "Success");
+  } catch (error) {
+    console.error("Error occurred:", error);
+    if (error instanceof Error) {
+      event.reply("remaining-funds-transfer-error", error.message);
+    } else {
+      event.reply("remaining-funds-transfer-error", "An unknown error occurred");
+    }
+  }
+});
 electron.app.whenReady().then(createWindow);
