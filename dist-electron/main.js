@@ -3,6 +3,7 @@ const electron = require("electron");
 const path = require("node:path");
 const { ipcMain } = require("electron");
 const { ethers } = require("ethers");
+let createdAccounts = [];
 process.env.DIST = path.join(__dirname, "../dist");
 process.env.VITE_PUBLIC = electron.app.isPackaged ? process.env.DIST : path.join(process.env.DIST, "../public");
 let win;
@@ -35,33 +36,57 @@ electron.app.on("activate", () => {
   }
 });
 ipcMain.on("create-accounts", (event, numberOfAccounts) => {
-  console.log(numberOfAccounts);
-  let accounts = [];
+  createdAccounts = [];
+  const virtualBalance = 5;
   for (let i = 0; i < numberOfAccounts; i++) {
     const wallet = ethers.Wallet.createRandom();
-    accounts.push({
+    createdAccounts.push({
       address: wallet.address,
-      privateKey: wallet.privateKey
+      privateKey: wallet.privateKey,
+      balance: virtualBalance
+      // Assign virtual balance
     });
   }
-  console.log("accounts:", accounts);
-  event.reply("accounts-created", accounts);
+  console.log("Created accounts with virtual balance:", createdAccounts);
+  event.reply("accounts-created", createdAccounts);
 });
-ipcMain.on("transfer-funds", async (event, sourcePrivateKey, destinationAddresses, amount) => {
+ipcMain.on("transfer-funds", async (event, sourcePrivateKey, destinationAddresses) => {
+  console.log("sourcePrivateKey", sourcePrivateKey);
+  console.log("destinationAddresses", destinationAddresses);
   try {
-    const provider = new ethers.JsonRpcProvider("https://mainnet.infura.io/v3/45428ab040a246b28ba479c3bf6f780d");
-    const sourceWallet = new ethers.Wallet(sourcePrivateKey, provider);
-    const totalAmount = ethers.utils.parseEther(amount.toString());
-    const amountPerAccount = totalAmount.div(ethers.BigNumber.from(destinationAddresses.length));
-    for (let address of destinationAddresses) {
-      const transaction = {
-        to: address,
-        value: amountPerAccount.toString()
-      };
-      await sourceWallet.sendTransaction(transaction);
+    const sourceWallet = createdAccounts.find((account) => account.privateKey === sourcePrivateKey);
+    if (!sourceWallet) {
+      throw new Error("Source wallet not found");
     }
+    console.log("sourceWallet", sourceWallet);
+    const sourceBalance = ethers.parseEther(sourceWallet.balance.toString());
+    console.log("Source account balance:", ethers.formatEther(sourceBalance), "ETH");
+    const amountPerAccountNumber = parseFloat(ethers.formatEther(sourceBalance)) / destinationAddresses.length;
+    const amountPerAccount = ethers.parseEther(amountPerAccountNumber.toString());
+    console.log("Amount per account:", ethers.formatEther(amountPerAccount), "ETH");
+    let remainingBalance = sourceBalance;
+    for (let destinationAddress of destinationAddresses) {
+      console.log(`Sending transaction to ${destinationAddress} with value ${ethers.formatEther(amountPerAccount)} ETH`);
+      const destinationWallet = createdAccounts.find((account) => account.address === destinationAddress);
+      if (destinationWallet) {
+        destinationWallet.balance += parseFloat(ethers.formatEther(amountPerAccount));
+        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} ETH`);
+      } else {
+        console.log(`Destination address ${destinationAddress} not found in created accounts`);
+      }
+      remainingBalance = remainingBalance - amountPerAccount;
+      console.log(`Transaction confirmed for ${destinationAddress}`);
+    }
+    sourceWallet.balance = parseFloat(ethers.formatEther(remainingBalance));
+    console.log("Funds transferred successfully!");
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
+    sourceWallet.balance = ethers.formatEther(remainingBalance);
+    console.log("Funds transferred successfully!");
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
+    console.log("accounts balance", createdAccounts);
     event.reply("funds-transferred", "Success");
   } catch (error) {
+    console.error("Error occurred:", error);
     if (error instanceof Error) {
       event.reply("funds-transfer-error", error.message);
     } else {

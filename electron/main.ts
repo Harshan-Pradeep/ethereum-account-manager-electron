@@ -5,6 +5,9 @@ const { ipcMain } = require('electron');
 const { ethers } = require('ethers');
 
 
+let createdAccounts: {
+  address: any; privateKey: any; balance: number; // Assign virtual balance
+}[] = [];
 
 
 
@@ -64,51 +67,100 @@ app.on('activate', () => {
   }
 })
 
-  ipcMain.on('create-accounts', (event, numberOfAccounts) => {
-    console.log(numberOfAccounts)
-    //const accounts = ethereumService.createAccounts(numberOfAccounts);
-    //event.reply('accounts-created', accounts);
+ipcMain.on('create-accounts', (event, numberOfAccounts) => {
+  createdAccounts = []; // Reset the accounts array
+  const virtualBalance = 5; // Virtual balance in Ether
 
-    //const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/45428ab040a246b28ba479c3bf6f780d');
-    
-      let accounts = [];
-      for (let i = 0; i < numberOfAccounts; i++) {
-        const wallet = ethers.Wallet.createRandom();
-        accounts.push({
-          address: wallet.address,
-          privateKey: wallet.privateKey
-        });
-      }
-      console.log("accounts:", accounts)
-      event.reply('accounts-created', accounts);
+  for (let i = 0; i < numberOfAccounts; i++) {
+    const wallet = ethers.Wallet.createRandom();
+    createdAccounts.push({
+      address: wallet.address,
+      privateKey: wallet.privateKey,
+      balance: virtualBalance // Assign virtual balance
+    });
+  }
 
-    
-  });
-  ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses, amount) => {
-    try {
-      const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/45428ab040a246b28ba479c3bf6f780d');
-      const sourceWallet = new ethers.Wallet(sourcePrivateKey, provider);
-      const totalAmount = ethers.utils.parseEther(amount.toString());
-      const amountPerAccount = totalAmount.div(ethers.BigNumber.from(destinationAddresses.length));
+  console.log("Created accounts with virtual balance:", createdAccounts);
+  event.reply('accounts-created', createdAccounts);
+});
+
+
   
-      for (let address of destinationAddresses) {
-        const transaction = {
-          to: address,
-          value: amountPerAccount.toString()
-        };
-        await sourceWallet.sendTransaction(transaction);
-      }
   
-      event.reply('funds-transferred', 'Success');
-    } catch (error) {
-      if (error instanceof Error) {
-        event.reply('funds-transfer-error', error.message);
-      } else {
-        // Handle the case where the error is not an instance of Error
-        event.reply('funds-transfer-error', 'An unknown error occurred');
-      }
+
+ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
+  console.log("sourcePrivateKey", sourcePrivateKey);
+  console.log("destinationAddresses", destinationAddresses);
+
+  try {
+    const sourceWallet = createdAccounts.find(account => account.privateKey === sourcePrivateKey);
+    if (!sourceWallet) {
+      throw new Error("Source wallet not found");
     }
-  });
+
+    console.log("sourceWallet", sourceWallet);
+
+    // Use the virtual balance of the source account
+    const sourceBalance = ethers.parseEther(sourceWallet.balance.toString());
+    console.log("Source account balance:", ethers.formatEther(sourceBalance), "ETH");
+
+    // Calculate the amount per account
+    const amountPerAccountNumber = parseFloat(ethers.formatEther(sourceBalance)) / destinationAddresses.length;
+    const amountPerAccount = ethers.parseEther(amountPerAccountNumber.toString());
+    console.log("Amount per account:", ethers.formatEther(amountPerAccount), "ETH");
+
+    let remainingBalance = sourceBalance; // Initialize remaining balance
+
+    for (let destinationAddress of destinationAddresses) {
+      // Simulate the transaction
+      console.log(`Sending transaction to ${destinationAddress} with value ${ethers.formatEther(amountPerAccount)} ETH`);
+    
+      // Find the destination wallet in the createdAccounts array
+      const destinationWallet = createdAccounts.find(account => account.address === destinationAddress);
+      if (destinationWallet) {
+        // Add the amountPerAccount to the destination wallet's balance
+        destinationWallet.balance += parseFloat(ethers.formatEther(amountPerAccount));
+        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} ETH`);
+      } else {
+        console.log(`Destination address ${destinationAddress} not found in created accounts`);
+      }
+    
+      // Deduct from source (simulated)
+      remainingBalance = remainingBalance - (amountPerAccount);
+      console.log(`Transaction confirmed for ${destinationAddress}`);
+    }
+    
+    // Update the source wallet balance
+    sourceWallet.balance = parseFloat(ethers.formatEther(remainingBalance));
+    console.log('Funds transferred successfully!');
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
+    
+
+    // Update the source wallet balance
+    sourceWallet.balance = ethers.formatEther(remainingBalance);
+    console.log('Funds transferred successfully!');
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
+    console.log("accounts balance", createdAccounts)
+    event.reply('funds-transferred', 'Success');
+
+  } catch (error) {
+    console.error('Error occurred:', error);
+    if (error instanceof Error) {
+      event.reply('funds-transfer-error', error.message);
+    } else {
+      event.reply('funds-transfer-error', 'An unknown error occurred');
+    }
+  }
+});
+
+
+
+
+
+
+  
+  
+  
   
   
   
