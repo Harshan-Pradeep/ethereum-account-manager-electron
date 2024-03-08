@@ -1,5 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
+
 import path from 'node:path'
+import { createAccounts, transferFunds, transferRandomFunds, transferRemainingFunds } from './accountHandlers';
+const { ipcMain } = require('electron');
 
 // The built directory structure
 //
@@ -20,6 +23,8 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
   win = new BrowserWindow({
+    width: 1000,
+    height: 1600,
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -56,5 +61,97 @@ app.on('activate', () => {
     createWindow()
   }
 })
+
+
+//Requirement 1
+
+ipcMain.on('create-accounts', (event, numberOfAccounts) => {
+  const accounts = createAccounts(numberOfAccounts);
+  event.reply('accounts-created', accounts);
+});
+
+//Requirement 2
+
+ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
+  try {
+    const response = await transferFunds(sourcePrivateKey, destinationAddresses);
+
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
+    });
+
+    event.reply('funds-transferred', response);
+  } catch (error) {
+    let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
+  }
+});
+
+// Requirement 3
+
+ipcMain.on('transfer-random-funds', async (event) => {
+  try {
+    const response = await transferRandomFunds();
+    console.log(response.message);
+    console.log("Updated accounts balance:", response.accounts);
+
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
+    });
+
+    event.reply('random-funds-transferred', response);
+  } catch (error) {
+    let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    console.error('Error occurred:', errorMessage);
+
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
+  }
+});
+
+//Requirement 4
+
+ipcMain.on('transfer-remaining-funds', async (event) => {
+  try {
+    const response = transferRemainingFunds();
+
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
+    });
+
+    event.reply('remaining-funds-transferred', response);
+  } catch (error) {
+    let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
+  }
+});
 
 app.whenReady().then(createWindow)
