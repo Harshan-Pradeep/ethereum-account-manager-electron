@@ -12,10 +12,19 @@ const HomePage = () => {
   return (
     <>
       <AccountTable />
-      <CreateAccountsComponent />
-      <TransferFundsComponent />
-      <RandomTransferComponent />
-      <ConsolidateBalanceComponent />
+      <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
+        <div>
+          <CreateAccountsComponent />
+          <TransferFundsComponent />
+        </div>
+
+        <div>
+          <RandomTransferComponent />
+          <ConsolidateBalanceComponent />
+        </div>
+      </div>
+
+
 
     </>
 

@@ -1,34 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import React, { useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import { setAccounts } from '../Redux/Action';
-import { ethers } from 'ethers';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 const ipcRenderer = (window as any).ipcRenderer;
 
 const RandomTransferComponent = () => {
-    const [transferMessage, setTransferMessage] = useState('');
 
     const dispatch = useDispatch();
-    const accounts = useSelector((state: any) => state.accounts.accounts);
 
     useEffect(() => {
 
         const handleRandomFundsTransferred = (event: any, response: any) => {
-            setTransferMessage(response.message);
-            dispatch(setAccounts(response.accounts));
-        };
-
-        const handleRandomFundsTransferredError = (event: any, response: any) => {
-            setTransferMessage(response.message);
             dispatch(setAccounts(response.accounts));
         };
 
         ipcRenderer.on('random-funds-transferred', handleRandomFundsTransferred);
-        ipcRenderer.on('random-funds-transfer-error', handleRandomFundsTransferredError);
 
         return () => {
 
             ipcRenderer.removeListener('random-funds-transferred', handleRandomFundsTransferred);
-            ipcRenderer.removeListener('random-funds-transfer-error', handleRandomFundsTransferredError);
         };
     }, [dispatch]);
 
@@ -37,11 +28,15 @@ const RandomTransferComponent = () => {
     };
 
     return (
-        <div>
+        <div style={{ display: "flex", gap: "130px" }}>
 
-            <h2>Transfer Random Funds</h2>
-            <button onClick={handleTransferRandomFunds}>Transfer Random Funds</button>
-            {transferMessage && <p>{transferMessage}</p>}
+            <h2>Transfer Random Funds (R:3)</h2>
+
+            <Stack direction="row" spacing={2}>
+                <Button variant="contained" color="success" sx={{ width: '250px', height: '50px' }} onClick={handleTransferRandomFunds}>
+                    Transfer Random Funds
+                </Button>
+            </Stack>
         </div>
 
     );

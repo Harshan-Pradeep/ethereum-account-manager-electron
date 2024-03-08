@@ -19,11 +19,11 @@ const AccountTable = () => {
                         <TableCell align="center">Index</TableCell>
                         <TableCell align="center">Address</TableCell>
                         <TableCell align="center">PrivateKey</TableCell>
-                        <TableCell align="center">Balance&nbsp;(ETH)</TableCell>
+                        <TableCell align="center">Balance&nbsp;(Wei)</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {accounts.map((account:any, index:number) => (
+                    {accounts.map((account: any, index: number) => (
                         <TableRow
                             key={index}
                             sx={{ '&:last-child td, &:last-child th': { border: 0 } }}

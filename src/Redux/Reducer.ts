@@ -1,4 +1,4 @@
-// reducers/accountsReducer.js
+
 import { CREATE_ACCOUNTS, SET_ACCOUNTS, TRANSFER_FUNDS } from './Action';
 
 const initialState = {
@@ -6,14 +6,14 @@ const initialState = {
   transferStatus: null,
 };
 
-const accountsReducer = (state = initialState, action:any) => {
+const accountsReducer = (state = initialState, action: any) => {
   switch (action.type) {
     case SET_ACCOUNTS:
       return {
         ...state,
         accounts: action.payload,
       };
-      case TRANSFER_FUNDS:
+    case TRANSFER_FUNDS:
       return {
         ...state,
         transferStatus: 'pending',
@@ -21,7 +21,7 @@ const accountsReducer = (state = initialState, action:any) => {
     default:
       return state;
   }
-  
+
 };
 
 export default accountsReducer;

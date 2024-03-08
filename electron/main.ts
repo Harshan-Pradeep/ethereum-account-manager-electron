@@ -1,15 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 
 import path from 'node:path'
+import { createAccounts, transferFunds, transferRandomFunds, transferRemainingFunds } from './accountHandlers';
 const { ipcMain } = require('electron');
-const { ethers } = require('ethers');
-
-
-let createdAccounts: {
-  address: any; privateKey: any; balance: string; // Assign virtual balance
-}[] = [];
-
-
 
 // The built directory structure
 //
@@ -30,6 +23,8 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
   win = new BrowserWindow({
+    width: 1000,
+    height: 1600,
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -69,175 +64,93 @@ app.on('activate', () => {
 
 
 //Requirement 1
+
 ipcMain.on('create-accounts', (event, numberOfAccounts) => {
-  createdAccounts = []; // Reset the accounts array
-  const virtualBalance = '5000000000000000000'; // Virtual balance in Ether
-
-  for (let i = 0; i < numberOfAccounts; i++) {
-    const wallet = ethers.Wallet.createRandom();
-    createdAccounts.push({
-      address: wallet.address,
-      privateKey: wallet.privateKey,
-      balance: virtualBalance // Assign virtual balance
-    });
-  }
-
-  console.log("Created accounts with virtual balance:", createdAccounts);
-  event.reply('accounts-created', createdAccounts);
+  const accounts = createAccounts(numberOfAccounts);
+  event.reply('accounts-created', accounts);
 });
 
-
-
-
 //Requirement 2
-//Requirement 2
+
 ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
-  console.log("sourcePrivateKey", sourcePrivateKey);
-  console.log("destinationAddresses", destinationAddresses);
-
   try {
-    const sourceWallet = createdAccounts.find(account => account.privateKey === sourcePrivateKey);
-    if (!sourceWallet) {
-      throw new Error("Source wallet not found");
-    }
+    const response = await transferFunds(sourcePrivateKey, destinationAddresses);
 
-    console.log("sourceWallet", sourceWallet);
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
+    });
 
-    // Use the virtual balance of the source account (converted to BigInt)
-    const sourceBalance = BigInt(sourceWallet.balance);
-    console.log("Source account balance:", sourceBalance, "wei");
-
-    // Calculate the amount per account (as BigInt)
-    const amountPerAccount = sourceBalance / BigInt(destinationAddresses.length);
-    console.log("Amount per account:", amountPerAccount, "wei");
-
-    for (let destinationAddress of destinationAddresses) {
-      // Simulate the transaction
-      console.log(`Sending transaction to ${destinationAddress} with value ${amountPerAccount} wei`);
-
-      // Find the destination wallet in the createdAccounts array
-      const destinationWallet = createdAccounts.find(account => account.address === destinationAddress);
-      if (destinationWallet) {
-        // Add the amountPerAccount to the destination wallet's balance (converted to string)
-        destinationWallet.balance = (BigInt(destinationWallet.balance) + amountPerAccount).toString();
-        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} wei`);
-      } else {
-        console.log(`Destination address ${destinationAddress} not found in created accounts`);
-      }
-
-      // Deduct from source (simulated) (converted to string)
-      sourceWallet.balance = (BigInt(sourceWallet.balance) - amountPerAccount).toString();
-      console.log(`Transaction confirmed for ${destinationAddress}`);
-    }
-
-    // Update the source wallet balance (converted to string)
-    console.log('Funds transferred successfully!');
-    console.log(`Source account balance after transfer: ${sourceWallet.balance} wei`);
-    const response = {
-      message: 'Funds transferred successfully!',
-      accounts: createdAccounts
-    };
     event.reply('funds-transferred', response);
-
-
   } catch (error) {
     let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    const response = {
-      message: errorMessage,
-      accounts: createdAccounts
-    };
-    event.reply('funds-transfer-error', response);
+    
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
   }
 });
 
-
-
 // Requirement 3
+
 ipcMain.on('transfer-random-funds', async (event) => {
   try {
-    // Randomly select one account as the source
-    const sourceIndex = Math.floor(Math.random() * createdAccounts.length);
-    const sourceWallet = createdAccounts[sourceIndex];
+    const response = await transferRandomFunds();
+    console.log(response.message);
+    console.log("Updated accounts balance:", response.accounts);
 
-    console.log(`Selected source: ${sourceWallet.address}`);
-
-    // Transfer random amounts to other accounts
-    createdAccounts.forEach((account, index) => {
-      if (index !== sourceIndex) {
-        // Determine a random amount to transfer
-        const transferAmount = BigInt(Math.floor(Math.random() * Number(sourceWallet.balance)));
-        console.log(`Transferring ${transferAmount} wei from ${sourceWallet.address} to ${account.address}`);
-
-        // Update balances (simulated)
-        sourceWallet.balance = (BigInt(sourceWallet.balance) - transferAmount).toString();
-        account.balance = (BigInt(account.balance) + transferAmount).toString();
-      }
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
     });
 
-    console.log('Random funds transferred successfully!');
-    console.log(`Source address ${sourceWallet.address} new balance: ${sourceWallet.balance} wei`);
-    console.log("Updated accounts balance:", createdAccounts);
-    const response = {
-      message: 'Funds transferred successfully!',
-      accounts: createdAccounts
-    };
     event.reply('random-funds-transferred', response);
   } catch (error) {
     let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    const response = {
-      message: errorMessage,
-      accounts: createdAccounts
-    };
-    event.reply('random-funds-transfer-error', response);
+    console.error('Error occurred:', errorMessage);
+
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
   }
 });
-
 
 //Requirement 4
 
 ipcMain.on('transfer-remaining-funds', async (event) => {
   try {
-    // Randomly select one account as the recipient
-    const recipientIndex = Math.floor(Math.random() * createdAccounts.length);
-    const recipientWallet = createdAccounts[recipientIndex];
+    const response = transferRemainingFunds();
 
-    console.log(`Selected recipient: ${recipientWallet.address}`);
-
-    // Transfer the remaining balance of other accounts to the selected account
-    createdAccounts.forEach((account, index) => {
-      if (index !== recipientIndex && BigInt(account.balance) > 0) {
-        console.log(`Transferring ${account.balance} ETH from ${account.address} to ${recipientWallet.address}`);
-        recipientWallet.balance = (BigInt(recipientWallet.balance) + BigInt(account.balance)).toString(); // Add to recipient
-        account.balance = '0'; // Deduct from sender
-      }
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Transfer Random Funds',
+      message: response.message
     });
 
-
-    console.log('Remaining funds transferred successfully!');
-    console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
-    console.log("Updated accounts balance:", createdAccounts);
-
-    const response = {
-      message: 'Funds transferred successfully!',
-      accounts: createdAccounts
-    };
     event.reply('remaining-funds-transferred', response);
   } catch (error) {
     let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    const response = {
-      message: errorMessage,
-      accounts: createdAccounts
-    };
-    event.reply('remaining-funds-transfer-error', response);
+    
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Transfer Random Funds Error',
+      message: errorMessage
+    });
   }
 });
 

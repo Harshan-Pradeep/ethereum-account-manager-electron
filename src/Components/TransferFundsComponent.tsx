@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setAccounts } from '../Redux/Action';
 import { ethers } from 'ethers';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 const ipcRenderer = (window as any).ipcRenderer;
 
 const TransferFundsComponent = () => {
 
   const [sourcePrivateKey, setSourcePrivateKey] = useState('');
-  const [transferMessage, setTransferMessage] = useState('');
 
   const dispatch = useDispatch();
   const accounts = useSelector((state: any) => state.accounts.accounts);
@@ -15,23 +18,14 @@ const TransferFundsComponent = () => {
   useEffect(() => {
 
     const handleFundsTransferred = (event: any, response: any) => {
-      setTransferMessage(response.message);
-      dispatch(setAccounts(response.accounts));
-    };
-
-    const handleFundsTransferError = (event: any, response: any) => {
-      setTransferMessage(response.message);
       dispatch(setAccounts(response.accounts));
     };
 
     ipcRenderer.on('funds-transferred', handleFundsTransferred);
-    ipcRenderer.on('funds-transfer-error', handleFundsTransferError);
 
 
     return () => {
       ipcRenderer.removeListener('funds-transferred', handleFundsTransferred);
-      ipcRenderer.removeListener('funds-transfer-error', handleFundsTransferError);
-
     };
   }, [dispatch]);
 
@@ -48,15 +42,27 @@ const TransferFundsComponent = () => {
 
   return (
     <div>
-      <h2>Transfer Funds</h2>
-      <input
-        type="text"
-        placeholder="Source Private Key"
-        value={sourcePrivateKey}
-        onChange={(e) => setSourcePrivateKey(e.target.value)}
-      />
-      <button onClick={handleTransferFunds}>Transfer Funds</button>
-      {transferMessage && <p>{transferMessage}</p>}
+      <h2>Transfer Funds (R:2)</h2>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Box
+          component="form"
+          sx={{
+            '& > :not(style)': { m: 1, width: '50ch' },
+          }}
+          noValidate
+          autoComplete="off"
+        >
+          <TextField id="outlined-basic" label="Source Private Key" variant="outlined" value={sourcePrivateKey}
+            onChange={(e) => setSourcePrivateKey(e.target.value)} />
+        </Box>
+
+        <Stack direction="row" spacing={2}>
+          <Button variant="contained" color="success" sx={{ width: '250px', height: '50px' }} onClick={handleTransferFunds}>
+            Transfer Funds
+          </Button>
+        </Stack>
+      </div>
+
     </div>
 
   );

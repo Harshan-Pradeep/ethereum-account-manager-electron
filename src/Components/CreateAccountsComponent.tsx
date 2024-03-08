@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setAccounts } from '../Redux/Action';
-import { ethers } from 'ethers';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 const ipcRenderer = (window as any).ipcRenderer;
 
 const CreateAccountsComponent = () => {
     const [numberOfAccounts, setNumberOfAccounts] = useState(0);
 
     const dispatch = useDispatch();
-    const accounts = useSelector((state: any) => state.accounts.accounts);
+
 
     useEffect(() => {
         const handleAccountsCreated = (event: any, createdAccounts: any) => {
@@ -33,13 +35,26 @@ const CreateAccountsComponent = () => {
 
     return (
         <div>
-            <h2>Create Accounts</h2>
-            <input
-                type="number"
-                value={numberOfAccounts}
-                onChange={(e) => setNumberOfAccounts(Number(e.target.value))}
-            />
-            <button onClick={handleCreateAccounts}>Create Accounts</button>
+            <h2>Create Accounts (R:1)</h2>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center " }}>
+                <TextField
+                    type="number"
+                    label="Number of Accounts"
+                    value={numberOfAccounts}
+                    onChange={(e) => setNumberOfAccounts(Number(e.target.value))}
+                    variant="outlined"
+                    sx={{ m: 1, width: '50ch' }}
+                    inputProps={{ min: 1 }}
+                />
+
+
+                <Stack direction="row" spacing={2}>
+                    <Button variant="contained" color="success" sx={{ width: '250px', height: '50px' }} onClick={handleCreateAccounts}>
+                        Create Accounts
+                    </Button>
+                </Stack>
+            </div>
         </div>
     );
 };
