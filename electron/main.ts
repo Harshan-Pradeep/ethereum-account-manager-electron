@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 
 
 let createdAccounts: {
-  address: any; privateKey: any; balance: number; // Assign virtual balance
+  address: any; privateKey: any; balance: string; // Assign virtual balance
 }[] = [];
 
 
@@ -71,7 +71,7 @@ app.on('activate', () => {
 //Requirement 1
 ipcMain.on('create-accounts', (event, numberOfAccounts) => {
   createdAccounts = []; // Reset the accounts array
-  const virtualBalance = 5; // Virtual balance in Ether
+  const virtualBalance = '5000000000000000000'; // Virtual balance in Ether
 
   for (let i = 0; i < numberOfAccounts; i++) {
     const wallet = ethers.Wallet.createRandom();
@@ -87,8 +87,9 @@ ipcMain.on('create-accounts', (event, numberOfAccounts) => {
 });
 
 
-  
-  
+
+
+//Requirement 2
 //Requirement 2
 ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
   console.log("sourcePrivateKey", sourcePrivateKey);
@@ -102,63 +103,104 @@ ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresse
 
     console.log("sourceWallet", sourceWallet);
 
-    // Use the virtual balance of the source account
-    const sourceBalance = ethers.parseEther(sourceWallet.balance.toString());
-    console.log("Source account balance:", ethers.formatEther(sourceBalance), "ETH");
+    // Use the virtual balance of the source account (converted to BigInt)
+    const sourceBalance = BigInt(sourceWallet.balance);
+    console.log("Source account balance:", sourceBalance, "wei");
 
-    // Calculate the amount per account
-    const amountPerAccountNumber = parseFloat(ethers.formatEther(sourceBalance)) / destinationAddresses.length;
-    const amountPerAccount = ethers.parseEther(amountPerAccountNumber.toString());
-    console.log("Amount per account:", ethers.formatEther(amountPerAccount), "ETH");
-
-    let remainingBalance = sourceBalance; // Initialize remaining balance
+    // Calculate the amount per account (as BigInt)
+    const amountPerAccount = sourceBalance / BigInt(destinationAddresses.length);
+    console.log("Amount per account:", amountPerAccount, "wei");
 
     for (let destinationAddress of destinationAddresses) {
       // Simulate the transaction
-      console.log(`Sending transaction to ${destinationAddress} with value ${ethers.formatEther(amountPerAccount)} ETH`);
-    
+      console.log(`Sending transaction to ${destinationAddress} with value ${amountPerAccount} wei`);
+
       // Find the destination wallet in the createdAccounts array
       const destinationWallet = createdAccounts.find(account => account.address === destinationAddress);
       if (destinationWallet) {
-        // Add the amountPerAccount to the destination wallet's balance
-        destinationWallet.balance += parseFloat(ethers.formatEther(amountPerAccount));
-        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} ETH`);
+        // Add the amountPerAccount to the destination wallet's balance (converted to string)
+        destinationWallet.balance = (BigInt(destinationWallet.balance) + amountPerAccount).toString();
+        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} wei`);
       } else {
         console.log(`Destination address ${destinationAddress} not found in created accounts`);
       }
-    
-      // Deduct from source (simulated)
-      remainingBalance = remainingBalance - (amountPerAccount);
+
+      // Deduct from source (simulated) (converted to string)
+      sourceWallet.balance = (BigInt(sourceWallet.balance) - amountPerAccount).toString();
       console.log(`Transaction confirmed for ${destinationAddress}`);
     }
-    
-    // Update the source wallet balance
-    sourceWallet.balance = parseFloat(ethers.formatEther(remainingBalance));
-    console.log('Funds transferred successfully!');
-    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
-    
 
-    // Update the source wallet balance
-    sourceWallet.balance = ethers.formatEther(remainingBalance);
+    // Update the source wallet balance (converted to string)
     console.log('Funds transferred successfully!');
-    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
-    console.log("accounts balance", createdAccounts)
-    event.reply('funds-transferred', 'Success');
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} wei`);
+    const response = {
+      message: 'Funds transferred successfully!',
+      accounts: createdAccounts
+    };
+    event.reply('funds-transferred', response);
+
 
   } catch (error) {
-    console.error('Error occurred:', error);
+    let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
-      event.reply('funds-transfer-error', error.message);
-    } else {
-      event.reply('funds-transfer-error', 'An unknown error occurred');
+      errorMessage = error.message;
     }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply('funds-transfer-error', response);
+  }
+});
+
+
+
+// Requirement 3
+ipcMain.on('transfer-random-funds', async (event) => {
+  try {
+    // Randomly select one account as the source
+    const sourceIndex = Math.floor(Math.random() * createdAccounts.length);
+    const sourceWallet = createdAccounts[sourceIndex];
+
+    console.log(`Selected source: ${sourceWallet.address}`);
+
+    // Transfer random amounts to other accounts
+    createdAccounts.forEach((account, index) => {
+      if (index !== sourceIndex) {
+        // Determine a random amount to transfer
+        const transferAmount = BigInt(Math.floor(Math.random() * Number(sourceWallet.balance)));
+        console.log(`Transferring ${transferAmount} wei from ${sourceWallet.address} to ${account.address}`);
+
+        // Update balances (simulated)
+        sourceWallet.balance = (BigInt(sourceWallet.balance) - transferAmount).toString();
+        account.balance = (BigInt(account.balance) + transferAmount).toString();
+      }
+    });
+
+    console.log('Random funds transferred successfully!');
+    console.log(`Source address ${sourceWallet.address} new balance: ${sourceWallet.balance} wei`);
+    console.log("Updated accounts balance:", createdAccounts);
+    const response = {
+      message: 'Funds transferred successfully!',
+      accounts: createdAccounts
+    };
+    event.reply('random-funds-transferred', response);
+  } catch (error) {
+    let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply('random-funds-transfer-error', response);
   }
 });
 
 
 //Requirement 4
 
-// Requirement 3
 ipcMain.on('transfer-remaining-funds', async (event) => {
   try {
     // Randomly select one account as the recipient
@@ -169,38 +211,34 @@ ipcMain.on('transfer-remaining-funds', async (event) => {
 
     // Transfer the remaining balance of other accounts to the selected account
     createdAccounts.forEach((account, index) => {
-      if (index !== recipientIndex && account.balance > 0) {
+      if (index !== recipientIndex && BigInt(account.balance) > 0) {
         console.log(`Transferring ${account.balance} ETH from ${account.address} to ${recipientWallet.address}`);
-        recipientWallet.balance += account.balance; // Add to recipient
-        account.balance = 0; // Deduct from sender
+        recipientWallet.balance = (BigInt(recipientWallet.balance) + BigInt(account.balance)).toString(); // Add to recipient
+        account.balance = '0'; // Deduct from sender
       }
     });
+
 
     console.log('Remaining funds transferred successfully!');
     console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
     console.log("Updated accounts balance:", createdAccounts);
-    event.reply('remaining-funds-transferred', 'Success');
+
+    const response = {
+      message: 'Funds transferred successfully!',
+      accounts: createdAccounts
+    };
+    event.reply('remaining-funds-transferred', response);
   } catch (error) {
-    console.error('Error occurred:', error);
+    let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
-      event.reply('remaining-funds-transfer-error', error.message);
-    } else {
-      event.reply('remaining-funds-transfer-error', 'An unknown error occurred');
+      errorMessage = error.message;
     }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply('remaining-funds-transfer-error', response);
   }
 });
-
-
-
-
-
-
-  
-  
-  
-  
-  
-  
-
 
 app.whenReady().then(createWindow)

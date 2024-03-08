@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setAccounts } from '../Redux/Action'; // Adjust the path as needed
+import { setAccounts } from '../Redux/Action';
 import { ethers } from 'ethers';
+import CreateAccountsComponent from '../Components/CreateAccountsComponent';
 const ipcRenderer = (window as any).ipcRenderer;
 
 const HomePage = () => {
@@ -10,6 +11,7 @@ const HomePage = () => {
   const [transferAmount, setTransferAmount] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
   const [remainingFundsMessage, setRemainingFundsMessage] = useState('');
+  const [randomFundsMessage, setRandomFundsMessage] = useState(''); // New state variable for the random funds transfer message
   const dispatch = useDispatch();
   const accounts = useSelector((state: any) => state.accounts.accounts);
 
@@ -18,22 +20,52 @@ const HomePage = () => {
       dispatch(setAccounts(createdAccounts));
     };
 
-    const handleFundsTransferred = (event: any, message: string) => {
-      setTransferMessage(message);
+    const handleFundsTransferred = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
     };
 
-    const handleRemainingFundsTransferred = (event: any, message: string) => {
-      setRemainingFundsMessage(message);
+    const handleFundsTransferError = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
+    };
+
+
+
+    const handleRemainingFundsTransferred = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
+    };
+
+    const handleRemainingFundsTransferredError = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
+    };
+
+    const handleRandomFundsTransferred = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
+    };
+
+    const handleRandomFundsTransferredError = (event: any, response: any) => {
+      setTransferMessage(response.message);
+      dispatch(setAccounts(response.accounts));
     };
 
     ipcRenderer.on('accounts-created', handleAccountsCreated);
     ipcRenderer.on('funds-transferred', handleFundsTransferred);
+    ipcRenderer.on('funds-transfer-error', handleFundsTransferError);
     ipcRenderer.on('remaining-funds-transferred', handleRemainingFundsTransferred);
+    ipcRenderer.on('remaining-funds-transfer-error', handleRemainingFundsTransferred);
+    ipcRenderer.on('random-funds-transferred', handleRandomFundsTransferred);
+    ipcRenderer.on('random-funds-transfer-error', handleRandomFundsTransferred);
 
     return () => {
       ipcRenderer.removeListener('accounts-created', handleAccountsCreated);
       ipcRenderer.removeListener('funds-transferred', handleFundsTransferred);
+      ipcRenderer.removeListener('funds-transfer-error', handleFundsTransferError);
       ipcRenderer.removeListener('remaining-funds-transferred', handleRemainingFundsTransferred);
+      ipcRenderer.removeListener('random-funds-transferred', handleRandomFundsTransferred); // Remove the listener for the random funds transfer event
     };
   }, [dispatch]);
 
@@ -54,6 +86,10 @@ const HomePage = () => {
 
   const handleTransferRemainingFunds = () => {
     ipcRenderer.send('transfer-remaining-funds');
+  };
+
+  const handleTransferRandomFunds = () => {
+    ipcRenderer.send('transfer-random-funds'); // Send the IPC message to trigger the random funds transfer
   };
 
   return (
@@ -78,19 +114,36 @@ const HomePage = () => {
         value={sourcePrivateKey}
         onChange={(e) => setSourcePrivateKey(e.target.value)}
       />
-      <input
-        type="text"
-        placeholder="Amount (ETH)"
-        value={transferAmount}
-        onChange={(e) => setTransferAmount(e.target.value)}
-      />
       <button onClick={handleTransferFunds}>Transfer Funds</button>
+      <div>
+        {accounts.map((account: any, index: React.Key | null | undefined) => (
+          <>
+            <p key={index}>{account.address}</p>
+            <p key={index}>{account.balance}</p>
+          </>
+
+        ))}
+      </div>
       {transferMessage && <p>{transferMessage}</p>}
 
       <h2>Transfer Remaining Funds</h2>
       <button onClick={handleTransferRemainingFunds}>Transfer Remaining Funds</button>
-      {remainingFundsMessage && <p>{remainingFundsMessage}</p>}
+      <div>
+        {accounts.map((account: any, index: React.Key | null | undefined) => (
+          <>
+            <p key={index}>{account.address}</p>
+            <p key={index}>{account.balance}</p>
+          </>
+
+        ))}
+      </div>
+      {transferMessage && <p>{transferMessage}</p>}
+
+      <h2>Transfer Random Funds</h2> {/* New section for transferring random funds */}
+      <button onClick={handleTransferRandomFunds}>Transfer Random Funds</button>
+      {randomFundsMessage && <p>{randomFundsMessage}</p>} {/* Display the message for random funds transfer */}
     </div>
+   
   );
 };
 

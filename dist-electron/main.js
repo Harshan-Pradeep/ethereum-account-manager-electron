@@ -37,7 +37,7 @@ electron.app.on("activate", () => {
 });
 ipcMain.on("create-accounts", (event, numberOfAccounts) => {
   createdAccounts = [];
-  const virtualBalance = 5;
+  const virtualBalance = "5000000000000000000";
   for (let i = 0; i < numberOfAccounts; i++) {
     const wallet = ethers.Wallet.createRandom();
     createdAccounts.push({
@@ -59,39 +59,72 @@ ipcMain.on("transfer-funds", async (event, sourcePrivateKey, destinationAddresse
       throw new Error("Source wallet not found");
     }
     console.log("sourceWallet", sourceWallet);
-    const sourceBalance = ethers.parseEther(sourceWallet.balance.toString());
-    console.log("Source account balance:", ethers.formatEther(sourceBalance), "ETH");
-    const amountPerAccountNumber = parseFloat(ethers.formatEther(sourceBalance)) / destinationAddresses.length;
-    const amountPerAccount = ethers.parseEther(amountPerAccountNumber.toString());
-    console.log("Amount per account:", ethers.formatEther(amountPerAccount), "ETH");
-    let remainingBalance = sourceBalance;
+    const sourceBalance = BigInt(sourceWallet.balance);
+    console.log("Source account balance:", sourceBalance, "wei");
+    const amountPerAccount = sourceBalance / BigInt(destinationAddresses.length);
+    console.log("Amount per account:", amountPerAccount, "wei");
     for (let destinationAddress of destinationAddresses) {
-      console.log(`Sending transaction to ${destinationAddress} with value ${ethers.formatEther(amountPerAccount)} ETH`);
+      console.log(`Sending transaction to ${destinationAddress} with value ${amountPerAccount} wei`);
       const destinationWallet = createdAccounts.find((account) => account.address === destinationAddress);
       if (destinationWallet) {
-        destinationWallet.balance += parseFloat(ethers.formatEther(amountPerAccount));
-        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} ETH`);
+        destinationWallet.balance = (BigInt(destinationWallet.balance) + amountPerAccount).toString();
+        console.log(`Destination address ${destinationAddress} balance after transfer: ${destinationWallet.balance} wei`);
       } else {
         console.log(`Destination address ${destinationAddress} not found in created accounts`);
       }
-      remainingBalance = remainingBalance - amountPerAccount;
+      sourceWallet.balance = (BigInt(sourceWallet.balance) - amountPerAccount).toString();
       console.log(`Transaction confirmed for ${destinationAddress}`);
     }
-    sourceWallet.balance = parseFloat(ethers.formatEther(remainingBalance));
     console.log("Funds transferred successfully!");
-    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
-    sourceWallet.balance = ethers.formatEther(remainingBalance);
-    console.log("Funds transferred successfully!");
-    console.log(`Source account balance after transfer: ${sourceWallet.balance} ETH`);
-    console.log("accounts balance", createdAccounts);
-    event.reply("funds-transferred", "Success");
+    console.log(`Source account balance after transfer: ${sourceWallet.balance} wei`);
+    const response = {
+      message: "Funds transferred successfully!",
+      accounts: createdAccounts
+    };
+    event.reply("funds-transferred", response);
   } catch (error) {
-    console.error("Error occurred:", error);
+    let errorMessage = "An unknown error occurred";
     if (error instanceof Error) {
-      event.reply("funds-transfer-error", error.message);
-    } else {
-      event.reply("funds-transfer-error", "An unknown error occurred");
+      errorMessage = error.message;
     }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply("funds-transfer-error", response);
+  }
+});
+ipcMain.on("transfer-random-funds", async (event) => {
+  try {
+    const sourceIndex = Math.floor(Math.random() * createdAccounts.length);
+    const sourceWallet = createdAccounts[sourceIndex];
+    console.log(`Selected source: ${sourceWallet.address}`);
+    createdAccounts.forEach((account, index) => {
+      if (index !== sourceIndex) {
+        const transferAmount = BigInt(Math.floor(Math.random() * Number(sourceWallet.balance)));
+        console.log(`Transferring ${transferAmount} wei from ${sourceWallet.address} to ${account.address}`);
+        sourceWallet.balance = (BigInt(sourceWallet.balance) - transferAmount).toString();
+        account.balance = (BigInt(account.balance) + transferAmount).toString();
+      }
+    });
+    console.log("Random funds transferred successfully!");
+    console.log(`Source address ${sourceWallet.address} new balance: ${sourceWallet.balance} wei`);
+    console.log("Updated accounts balance:", createdAccounts);
+    const response = {
+      message: "Funds transferred successfully!",
+      accounts: createdAccounts
+    };
+    event.reply("random-funds-transferred", response);
+  } catch (error) {
+    let errorMessage = "An unknown error occurred";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply("random-funds-transfer-error", response);
   }
 });
 ipcMain.on("transfer-remaining-funds", async (event) => {
@@ -100,23 +133,30 @@ ipcMain.on("transfer-remaining-funds", async (event) => {
     const recipientWallet = createdAccounts[recipientIndex];
     console.log(`Selected recipient: ${recipientWallet.address}`);
     createdAccounts.forEach((account, index) => {
-      if (index !== recipientIndex && account.balance > 0) {
+      if (index !== recipientIndex && BigInt(account.balance) > 0) {
         console.log(`Transferring ${account.balance} ETH from ${account.address} to ${recipientWallet.address}`);
-        recipientWallet.balance += account.balance;
-        account.balance = 0;
+        recipientWallet.balance = (BigInt(recipientWallet.balance) + BigInt(account.balance)).toString();
+        account.balance = "0";
       }
     });
     console.log("Remaining funds transferred successfully!");
     console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
     console.log("Updated accounts balance:", createdAccounts);
-    event.reply("remaining-funds-transferred", "Success");
+    const response = {
+      message: "Funds transferred successfully!",
+      accounts: createdAccounts
+    };
+    event.reply("remaining-funds-transferred", response);
   } catch (error) {
-    console.error("Error occurred:", error);
+    let errorMessage = "An unknown error occurred";
     if (error instanceof Error) {
-      event.reply("remaining-funds-transfer-error", error.message);
-    } else {
-      event.reply("remaining-funds-transfer-error", "An unknown error occurred");
+      errorMessage = error.message;
     }
+    const response = {
+      message: errorMessage,
+      accounts: createdAccounts
+    };
+    event.reply("remaining-funds-transfer-error", response);
   }
 });
 electron.app.whenReady().then(createWindow);
