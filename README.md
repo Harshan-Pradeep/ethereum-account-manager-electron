@@ -1,4 +1,4 @@
-# ethereum-account-manager
+# Ethereum-Account-Manager
 
 
 This Electron.js app is designed to manage Ethereum accounts and perform various operationsin locally such as creating accounts, transferring Ether, and more. It uses the ethers library to interact with the Ethereum blockchain.
