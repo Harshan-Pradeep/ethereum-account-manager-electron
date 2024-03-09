@@ -27,7 +27,7 @@ This Electron.js app is designed to manage Ethereum accounts and perform various
 To set up the project, follow these steps:
 
 **1.Clone the repository:**
-[[git clone https://github.com/your-username/ethereum-account-manager.git](https://github.com/Harshan-Pradeep/ethereum-account-manager-electron.git)](https://github.com/Harshan-Pradeep/ethereum-account-manager-electron.git)
+https://github.com/Harshan-Pradeep/ethereum-account-manager-electron.git
 
 **2.Navigate to the project directory:**
 cd ethereum-account-manager
