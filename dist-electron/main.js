@@ -2,70 +2,120 @@
 const electron = require("electron");
 const path = require("node:path");
 const { ethers } = require("ethers");
+const provider = new ethers.JsonRpcProvider("https://sepolia.infura.io/v3/45428ab040a246b28ba479c3bf6f780d");
+let senderBalance;
+const senderPrivateKey = "89a7b709cb47c092bea5f282fba3f7a93034e8ef813750a5fb192d37644d4c0b";
 let createdAccounts = [];
-const createAccounts = (numberOfAccounts) => {
+const getBalanceSourceAccount = async () => {
+  const senderWallet = new ethers.Wallet(senderPrivateKey, provider);
+  const balance = await provider.getBalance(senderWallet.address);
+  senderBalance = ethers.formatEther(balance);
+  console.log(`Balance of sender before transaction: ${senderBalance} ETH`);
+};
+async function sendETHMultiple(recipientAddresses, amount, sourceAddress, sourcePrivateKey) {
+  const sourceWallet = new ethers.Wallet(sourcePrivateKey, provider);
+  for (const recipientAddress of recipientAddresses) {
+    const tx = {
+      to: recipientAddress,
+      // Convert the amount to Wei (1 ETH = 10^18 Wei)
+      value: ethers.parseEther(amount),
+      // Set a gas limit for the transaction
+      gasLimit: 1e5
+      // 100,000 gas
+    };
+    const transaction = await sourceWallet.sendTransaction(tx);
+    console.log(`Transaction hash for ${recipientAddress}: ${transaction.hash}`);
+    await transaction.wait();
+    console.log(`Transaction to ${recipientAddress} confirmed!`);
+  }
+}
+const createAccounts = async (numberOfAccounts) => {
   createdAccounts = [];
-  const virtualBalance = "5000000000000000000";
   for (let i = 0; i < numberOfAccounts; i++) {
     const wallet = ethers.Wallet.createRandom();
     createdAccounts.push({
       address: wallet.address,
       privateKey: wallet.privateKey,
-      balance: virtualBalance
+      balance: "0"
     });
   }
-  console.log("Created accounts with virtual balance:", createdAccounts);
+  console.log("Created accounts:", createdAccounts);
   return createdAccounts;
 };
-const transferFunds = async (sourcePrivateKey, destinationAddresses) => {
-  const sourceWallet = createdAccounts.find((account) => account.privateKey === sourcePrivateKey);
-  if (!sourceWallet) {
-    throw new Error("Source wallet not found");
+const transferFunds = async () => {
+  await getBalanceSourceAccount();
+  const sourceBalance = parseFloat(senderBalance);
+  const gasPrice = (await provider.getFeeData()).gasPrice;
+  const gasLimit = BigInt(21e3);
+  const txCost = parseFloat(ethers.formatUnits(gasPrice * gasLimit, "ether"));
+  const totalTxCost = txCost * createAccounts.length;
+  if (sourceBalance < totalTxCost) {
+    throw new Error("Insufficient funds to cover the transaction costs.");
   }
-  const sourceBalance = BigInt(sourceWallet.balance);
-  const amountPerAccount = sourceBalance / BigInt(destinationAddresses.length);
-  for (let destinationAddress of destinationAddresses) {
-    const destinationWallet = createdAccounts.find((account) => account.address === destinationAddress);
-    if (destinationWallet) {
-      destinationWallet.balance = (BigInt(destinationWallet.balance) + amountPerAccount).toString();
-    } else {
-      console.log(`Destination address ${destinationAddress} not found in created accounts`);
+  const amountToSend = ((sourceBalance - totalTxCost) / createdAccounts.length).toFixed(6);
+  const recipientAddresses = createdAccounts.map((account) => account.address);
+  try {
+    await sendETHMultiple(
+      recipientAddresses,
+      amountToSend.toString(),
+      "0xE6798FCa40F9cD945e06a0fFbB12e4e53a30c400",
+      senderPrivateKey
+    );
+  } catch (error) {
+    console.error(error.message);
+  } finally {
+    for (let account of createdAccounts) {
+      const newBalance = await provider.getBalance(account.address);
+      account.balance = ethers.formatEther(newBalance);
     }
-    sourceWallet.balance = (BigInt(sourceWallet.balance) - amountPerAccount).toString();
+    console.log("Updated accounts with new balances:", createdAccounts);
+    return {
+      message: "Funds transferred successfully!",
+      accounts: createdAccounts
+    };
   }
-  console.log("Funds transferred successfully!");
-  console.log(`Source account balance after transfer: ${sourceWallet.balance} wei`);
-  return {
-    message: "Funds transferred successfully!",
-    accounts: createdAccounts
-  };
 };
 const transferRandomFunds = async () => {
   const sourceIndex = Math.floor(Math.random() * createdAccounts.length);
   const sourceWallet = createdAccounts[sourceIndex];
-  createdAccounts.forEach((account, index) => {
-    if (index !== sourceIndex) {
-      const transferAmount = BigInt(Math.floor(Math.random() * Number(sourceWallet.balance)));
-      sourceWallet.balance = (BigInt(sourceWallet.balance) - transferAmount).toString();
-      account.balance = (BigInt(account.balance) + transferAmount).toString();
+  createdAccounts.length;
+  for (let i = 0; i < createdAccounts.length; i++) {
+    if (i !== sourceIndex) {
+      let recipientWallet = createdAccounts[i];
+      let transferAmount = parseFloat((Math.random() * (sourceWallet.balance - buffer)).toFixed(6));
+      console.log("transferAmount", transferAmount);
+      try {
+        await sendETH(sourceWallet.privateKey, recipientWallet, transferAmount);
+        console.log(`Transaction successful! New balance of ${sourceWallet.address}: ${sourceWallet.balance} ETH`);
+        console.log(`New balance of ${recipientWallet.address}: ${recipientWallet.balance} ETH`);
+      } catch (error) {
+        console.error(`Transaction failed: ${error.message}`);
+      }
     }
-  });
-  console.log("Random funds transferred successfully!");
-  console.log(`Source address ${sourceWallet.address} new balance: ${sourceWallet.balance} wei`);
+  }
   return {
     message: "Random funds transferred successfully!",
     accounts: createdAccounts
   };
 };
-const transferRemainingFunds = () => {
+const transferRemainingFunds = async () => {
   const recipientIndex = Math.floor(Math.random() * createdAccounts.length);
   const recipientWallet = createdAccounts[recipientIndex];
-  createdAccounts.forEach((account, index) => {
-    if (index !== recipientIndex && BigInt(account.balance) > 0) {
-      recipientWallet.balance = (BigInt(recipientWallet.balance) + BigInt(account.balance)).toString();
-      account.balance = "0";
+  const buffer2 = 1e-4;
+  for (let i = 0; i < createdAccounts.length; i++) {
+    if (i !== recipientIndex) {
+      const sourceWallet = createdAccounts[i];
+      const transferAmount = sourceWallet.balance - buffer2;
+      console.log("transferAmount", transferAmount);
+      try {
+        await sendETH(sourceWallet.privateKey, recipientWallet, transferAmount);
+        console.log(`Transaction successful! New balance of ${sourceWallet.address}: ${sourceWallet.balance} ETH`);
+        console.log(`New balance of ${recipientWallet.address}: ${recipientWallet.balance} ETH`);
+      } catch (error) {
+        console.error(`Transaction failed: ${error.message}`);
+      }
     }
-  });
+  }
   console.log("Remaining funds transferred successfully!");
   console.log(`Recipient address ${recipientWallet.address} new balance: ${recipientWallet.balance} ETH`);
   return {
@@ -107,13 +157,13 @@ electron.app.on("activate", () => {
     createWindow();
   }
 });
-ipcMain.on("create-accounts", (event, numberOfAccounts) => {
-  const accounts = createAccounts(numberOfAccounts);
+ipcMain.on("create-accounts", async (event, numberOfAccounts) => {
+  const accounts = await createAccounts(numberOfAccounts);
   event.reply("accounts-created", accounts);
 });
-ipcMain.on("transfer-funds", async (event, sourcePrivateKey, destinationAddresses) => {
+ipcMain.on("transfer-funds", async (event) => {
   try {
-    const response = await transferFunds(sourcePrivateKey, destinationAddresses);
+    const response = await transferFunds();
     electron.dialog.showMessageBox({
       type: "info",
       title: "Transfer Random Funds",

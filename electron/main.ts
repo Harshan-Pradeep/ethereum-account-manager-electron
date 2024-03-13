@@ -65,21 +65,21 @@ app.on('activate', () => {
 
 //Requirement 1
 
-ipcMain.on('create-accounts', (event, numberOfAccounts) => {
-  const accounts = createAccounts(numberOfAccounts);
+ipcMain.on('create-accounts', async (event, numberOfAccounts) => {
+  const accounts = await createAccounts(numberOfAccounts);
   event.reply('accounts-created', accounts);
 });
 
 //Requirement 2
 
-ipcMain.on('transfer-funds', async (event, sourcePrivateKey, destinationAddresses) => {
+ipcMain.on('transfer-funds', async (event) => {
   try {
-    const response = await transferFunds(sourcePrivateKey, destinationAddresses);
+    const response = await transferFunds();
 
     dialog.showMessageBox({
       type: 'info',
       title: 'Transfer Random Funds',
-      message: response.message
+       message: response.message
     });
 
     event.reply('funds-transferred', response);
