@@ -2,9 +2,9 @@
 
 const { ethers } = require('ethers');
 
-const provider = new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/45428ab040a246b28ba479c3bf6f780d');
+const provider = new ethers.JsonRpcProvider(process.env.JsonRpcProvider);
 let senderBalance: any;
-const senderPrivateKey = '89a7b709cb47c092bea5f282fba3f7a93034e8ef813750a5fb192d37644d4c0b'
+const senderPrivateKey = process.env.SenderPrivateKey; 
 export let createdAccounts: {
     address: string;
     privateKey: string;
